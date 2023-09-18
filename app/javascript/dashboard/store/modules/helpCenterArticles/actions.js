@@ -1,4 +1,5 @@
 import articlesAPI from 'dashboard/api/helpCenter/articles';
+import { uploadFile } from 'dashboard/helper/uploadHelper';
 import { throwErrorMessage } from 'dashboard/store/utils/api';
 
 import types from '../../mutation-types';
@@ -69,6 +70,7 @@ export const actions = {
       commit(types.SET_UI_FLAG, { isFetching: false });
     }
   },
+
   update: async ({ commit }, { portalSlug, articleId, ...articleObj }) => {
     commit(types.UPDATE_ARTICLE_FLAG, {
       uiFlags: {
@@ -100,6 +102,7 @@ export const actions = {
       });
     }
   },
+
   delete: async ({ commit }, { portalSlug, articleId }) => {
     commit(types.UPDATE_ARTICLE_FLAG, {
       uiFlags: {
@@ -124,18 +127,22 @@ export const actions = {
     }
   },
 
-  attachImage: async (_, { portalSlug, file }) => {
+  attachImage: async (_, { file }) => {
+    const { fileUrl } = await uploadFile(file);
+    return fileUrl;
+  },
+
+  reorder: async (_, { portalSlug, categorySlug, reorderedGroup }) => {
     try {
-      const {
-        data: { file_url: fileUrl },
-      } = await articlesAPI.uploadImage({
+      await articlesAPI.reorderArticles({
         portalSlug,
-        file,
+        reorderedGroup,
+        categorySlug,
       });
-      return fileUrl;
     } catch (error) {
       throwErrorMessage(error);
     }
+
     return '';
   },
 };

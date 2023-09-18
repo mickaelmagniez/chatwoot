@@ -7,6 +7,7 @@ import agents from './modules/agents';
 import articles from './modules/helpCenterArticles';
 import attributes from './modules/attributes';
 import auth from './modules/auth';
+import auditlogs from './modules/auditlogs';
 import automations from './modules/automations';
 import bulkActions from './modules/bulkActions';
 import campaigns from './modules/campaigns';
@@ -41,6 +42,7 @@ import teamMembers from './modules/teamMembers';
 import teams from './modules/teams';
 import userNotificationSettings from './modules/userNotificationSettings';
 import webhooks from './modules/webhooks';
+import draftMessages from './modules/draftMessages';
 
 import LogRocket from 'logrocket';
 import createPlugin from 'logrocket-vuex';
@@ -71,6 +73,7 @@ export default new Vuex.Store({
     attributes,
     auth,
     automations,
+    auditlogs,
     bulkActions,
     campaigns,
     cannedResponse,
@@ -104,6 +107,7 @@ export default new Vuex.Store({
     teams,
     userNotificationSettings,
     webhooks,
+    draftMessages,
   },
   plugins,
 });

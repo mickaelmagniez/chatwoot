@@ -1,5 +1,7 @@
 <template>
-  <div class="container overflow-auto">
+  <div
+    class="py-0 px-0 w-full max-w-full overflow-auto bg-white dark:bg-slate-900"
+  >
     <article-header
       :header-title="headerTitle"
       :count="meta.count"
@@ -11,10 +13,16 @@
       :current-page="Number(meta.currentPage)"
       :total-count="Number(meta.count)"
       @page-change="onPageChange"
+      @reorder="onReorder"
     />
-    <div v-if="shouldShowLoader" class="articles--loader">
+    <div
+      v-if="shouldShowLoader"
+      class="items-center flex text-base justify-center py-6 px-4 text-slate-600 dark:text-slate-200"
+    >
       <spinner />
-      <span>{{ $t('HELP_CENTER.TABLE.LOADING_MESSAGE') }}</span>
+      <span class="text-slate-600 dark:text-slate-200">{{
+        $t('HELP_CENTER.TABLE.LOADING_MESSAGE')
+      }}</span>
     </div>
     <empty-state
       v-else-if="shouldShowEmptyState"
@@ -29,6 +37,7 @@ import Spinner from 'shared/components/Spinner.vue';
 import ArticleHeader from 'dashboard/routes/dashboard/helpcenter/components/Header/ArticleHeader';
 import EmptyState from 'dashboard/components/widgets/EmptyState';
 import ArticleTable from '../../components/ArticleTable';
+
 export default {
   components: {
     ArticleHeader,
@@ -137,21 +146,12 @@ export default {
     onPageChange(pageNumber) {
       this.fetchArticles({ pageNumber });
     },
+    onReorder(reorderedGroup) {
+      this.$store.dispatch('articles/reorder', {
+        reorderedGroup,
+        portalSlug: this.$route.params.portalSlug,
+      });
+    },
   },
 };
 </script>
-
-<style lang="scss" scoped>
-.container {
-  padding: 0 var(--space-normal);
-  width: 100%;
-  overflow: auto;
-  .articles--loader {
-    align-items: center;
-    display: flex;
-    font-size: var(--font-size-default);
-    justify-content: center;
-    padding: var(--space-big);
-  }
-}
-</style>

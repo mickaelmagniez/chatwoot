@@ -22,10 +22,14 @@
       :label-class="context => labelClass(context)"
       :input-class="context => inputClass(context)"
       :validation-messages="{
-        isPhoneE164OrEmpty: $t('PRE_CHAT_FORM.FIELDS.PHONE_NUMBER.VALID_ERROR'),
+        startsWithPlus: $t(
+          'PRE_CHAT_FORM.FIELDS.PHONE_NUMBER.DIAL_CODE_VALID_ERROR'
+        ),
+        isValidPhoneNumber: $t('PRE_CHAT_FORM.FIELDS.PHONE_NUMBER.VALID_ERROR'),
         email: $t('PRE_CHAT_FORM.FIELDS.EMAIL_ADDRESS.VALID_ERROR'),
         required: $t('PRE_CHAT_FORM.REQUIRED'),
       }"
+      :has-error-in-phone-input="hasErrorInPhoneInput"
     />
     <FormulateInput
       v-if="!hasActiveCampaign"
@@ -42,7 +46,7 @@
     />
 
     <custom-button
-      class="font-medium my-5"
+      class="font-medium mt-2 mb-5"
       block
       :bg-color="widgetColor"
       :text-color="textColor"
@@ -63,25 +67,24 @@ import messageFormatterMixin from 'shared/mixins/messageFormatterMixin';
 import { isEmptyObject } from 'widget/helpers/utils';
 import routerMixin from 'widget/mixins/routerMixin';
 import darkModeMixin from 'widget/mixins/darkModeMixin';
+import configMixin from 'widget/mixins/configMixin';
+
 export default {
   components: {
     CustomButton,
     Spinner,
   },
-  mixins: [routerMixin, darkModeMixin, messageFormatterMixin],
+  mixins: [routerMixin, darkModeMixin, messageFormatterMixin, configMixin],
   props: {
     options: {
       type: Object,
       default: () => {},
     },
-    disableContactFields: {
-      type: Boolean,
-      default: false,
-    },
   },
   data() {
     return {
       locale: this.$root.$i18n.locale,
+      hasErrorInPhoneInput: false,
       message: '',
       formValues: {},
       labels: {
@@ -105,16 +108,19 @@ export default {
       return !isEmptyObject(this.activeCampaign);
     },
     shouldShowHeaderMessage() {
-      return this.hasActiveCampaign || this.options.preChatMessage;
+      return this.hasActiveCampaign || this.preChatFormEnabled;
     },
     headerMessage() {
+      if (this.preChatFormEnabled) {
+        return this.options.preChatMessage;
+      }
       if (this.hasActiveCampaign) {
         return this.$t('PRE_CHAT_FORM.CAMPAIGN_HEADER');
       }
-      return this.options.preChatMessage;
+      return '';
     },
     preChatFields() {
-      return this.disableContactFields ? [] : this.options.preChatFields;
+      return this.preChatFormEnabled ? this.options.preChatFields : [];
     },
     filteredPreChatFields() {
       const isUserEmailAvailable = !!this.currentUser.email;
@@ -143,7 +149,10 @@ export default {
         .filter(field => field.enabled)
         .map(field => ({
           ...field,
-          type: this.findFieldType(field.type),
+          type:
+            field.name === 'phoneNumber'
+              ? 'phoneInput'
+              : this.findFieldType(field.type),
         }));
     },
     conversationCustomAttributes() {
@@ -171,7 +180,7 @@ export default {
       return contactAttributes;
     },
     inputStyles() {
-      return `mt-2 border rounded w-full py-2 px-3 text-slate-700 outline-none`;
+      return `mt-1 border rounded w-full py-2 px-3 text-slate-700 outline-none`;
     },
     isInputDarkOrLightMode() {
       return `${this.$dm('bg-white', 'dark:bg-slate-600')} ${this.$dm(
@@ -202,6 +211,9 @@ export default {
       if (classification === 'box' && type === 'checkbox') {
         return '';
       }
+      if (type === 'phoneInput') {
+        this.hasErrorInPhoneInput = hasErrors;
+      }
       if (!hasErrors) {
         return `${this.inputStyles} hover:border-black-300 focus:border-black-300 ${this.isInputDarkOrLightMode} ${this.inputBorderColor}`;
       }
@@ -224,12 +236,9 @@ export default {
       return this.formValues[name] || null;
     },
     getValidation({ type, name }) {
-      if (!this.isContactFieldRequired(name)) {
-        return '';
-      }
       const validations = {
         emailAddress: 'email',
-        phoneNumber: 'isPhoneE164OrEmpty',
+        phoneNumber: 'startsWithPlus|isValidPhoneNumber',
         url: 'url',
         date: 'date',
         text: null,
@@ -238,11 +247,17 @@ export default {
         checkbox: false,
       };
       const validationKeys = Object.keys(validations);
-      const validation = 'bail|required';
+      const isRequired = this.isContactFieldRequired(name);
+      const validation = isRequired ? 'bail|required' : 'bail|optional';
+
       if (validationKeys.includes(name) || validationKeys.includes(type)) {
         const validationType = validations[type] || validations[name];
-        return validationType ? `${validation}|${validationType}` : validation;
+        const validationString = validationType
+          ? `${validation}|${validationType}`
+          : validation;
+        return validationString;
       }
+
       return '';
     },
     findFieldType(type) {
@@ -291,6 +306,7 @@ export default {
     .formulate-input-wrapper {
       display: flex;
       align-items: center;
+      line-height: $space-normal;
 
       label {
         margin-left: 0.2rem;

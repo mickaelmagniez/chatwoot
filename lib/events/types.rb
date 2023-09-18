@@ -4,6 +4,7 @@ module Events::Types
   ### Installation Events ###
   # account events
   ACCOUNT_CREATED = 'account.created'
+  ACCOUNT_CACHE_INVALIDATED = 'account.cache_invalidated'
 
   #### Account Events ###
   # campaign events
@@ -32,6 +33,7 @@ module Events::Types
   # message events
   MESSAGE_CREATED = 'message.created'
   FIRST_REPLY_CREATED = 'first.reply.created'
+  REPLY_CREATED = 'reply.created'
   MESSAGE_UPDATED = 'message.updated'
 
   # contact events

@@ -34,6 +34,17 @@ describe ReportingEventListener do
     end
   end
 
+  describe '#reply_created' do
+    it 'creates reply created event' do
+      event = Events::Base.new('reply.created', Time.zone.now, waiting_since: 2.hours.ago, message: message)
+      listener.reply_created(event)
+
+      events = account.reporting_events.where(name: 'reply_time', conversation_id: message.conversation_id)
+      expect(events.length).to be 1
+      expect(events.first.value).to eq 7200
+    end
+  end
+
   describe '#first_reply_created' do
     it 'creates first_response event' do
       previous_count = account.reporting_events.where(name: 'first_response').count
@@ -63,8 +74,9 @@ describe ReportingEventListener do
 
     # this ensures last_non_human_activity method accurately accounts for handoff events
     context 'when last handoff event exists' do
-      let(:conversation_updated_at) { 20.seconds.from_now }
-      let(:human_message_created_at) { 62.seconds.from_now }
+      let(:now) { Time.zone.now }
+      let(:conversation_updated_at) { now + 20.seconds }
+      let(:human_message_created_at) { now + 62.seconds }
       let(:new_conversation) { create(:conversation, account: account, inbox: inbox, assignee: user, updated_at: conversation_updated_at) }
       let(:new_message) do
         create(:message, message_type: 'outgoing', created_at: human_message_created_at, account: account, inbox: inbox,

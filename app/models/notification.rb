@@ -42,6 +42,8 @@ class Notification < ApplicationRecord
 
   after_create_commit :process_notification_delivery, :dispatch_create_event
 
+  # TODO: Get rid of default scope
+  # https://stackoverflow.com/a/1834250/939299
   default_scope { order(id: :desc) }
 
   PRIMARY_ACTORS = ['Conversation'].freeze
@@ -99,7 +101,7 @@ class Notification < ApplicationRecord
       I18n.t(
         'notifications.notification_title.assigned_conversation_new_message',
         display_id: conversation.display_id,
-        content: primary_actor&.content&.truncate_words(10)
+        content: transform_user_mention_content(primary_actor&.content&.truncate_words(10))
       )
     when 'conversation_mention'
       "[##{conversation&.display_id}] #{transform_user_mention_content primary_actor&.content}"

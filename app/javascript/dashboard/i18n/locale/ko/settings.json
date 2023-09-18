@@ -39,7 +39,10 @@
         "NOTE": "Create a personal message signature that would be added to all the messages you send from your email inbox. Use the rich content editor to create a highly personalised signature.",
         "BTN_TEXT": "Save message signature",
         "API_ERROR": "Couldn't save signature! Try again",
-        "API_SUCCESS": "Signature saved successfully"
+        "API_SUCCESS": "Signature saved successfully",
+        "IMAGE_UPLOAD_ERROR": "Couldn't upload image! Try again",
+        "IMAGE_UPLOAD_SUCCESS": "Image added successfully. Please click on save to save the signature",
+        "IMAGE_UPLOAD_SIZE_ERROR": "Image size should be less than {size}MB"
       },
       "MESSAGE_SIGNATURE": {
         "LABEL": "Message Signature",
@@ -149,6 +152,7 @@
     "SELECTOR_SUBTITLE": "다음 목록에서 계정 선택",
     "PROFILE_SETTINGS": "프로필 설정",
     "KEYBOARD_SHORTCUTS": "Keyboard Shortcuts",
+    "APPEARANCE": "Change Appearance",
     "SUPER_ADMIN_CONSOLE": "Super Admin Console",
     "LOGOUT": "로그아웃"
   },
@@ -164,6 +168,7 @@
   "COMPONENTS": {
     "CODE": {
       "BUTTON_TEXT": "복사",
+      "CODEPEN": "Open in CodePen",
       "COPY_SUCCESSFUL": "코드가 클립보드에 복사됨"
     },
     "SHOW_MORE_BLOCK": {
@@ -202,6 +207,7 @@
     "HOME": "홈",
     "AGENTS": "에이전트",
     "AGENT_BOTS": "봇",
+    "AUDIT_LOGS": "Audit Logs",
     "INBOXES": "받은 메시지함",
     "NOTIFICATIONS": "알림",
     "CANNED_RESPONSES": "미리 준비된 답변",

@@ -3,14 +3,17 @@
     :title="$t('SEARCH.SECTION.MESSAGES')"
     :empty="!messages.length"
     :query="query"
+    :show-title="showTitle"
+    :is-fetching="isFetching"
   >
-    <ul class="search-list">
+    <ul v-if="messages.length" class="search-list">
       <li v-for="message in messages" :key="message.id">
         <search-result-conversation-item
           :id="message.conversation_id"
           :account-id="accountId"
           :inbox="message.inbox"
           :created-at="message.created_at"
+          :message-id="message.id"
         >
           <message-content
             :author="getName(message)"
@@ -43,6 +46,14 @@ export default {
     query: {
       type: String,
       default: '',
+    },
+    isFetching: {
+      type: Boolean,
+      default: false,
+    },
+    showTitle: {
+      type: Boolean,
+      default: true,
     },
   },
   computed: {

@@ -1,10 +1,11 @@
 <template>
-  <section>
-    <div class="label-container">
-      <h3 class="text-block-title">{{ title }}</h3>
+  <section class="result-section">
+    <div v-if="showTitle" class="header">
+      <h3 class="text-sm text-slate-800 dark:text-slate-100">{{ title }}</h3>
     </div>
-    <slot />
-    <div v-if="empty" class="empty">
+    <woot-loading-state v-if="isFetching" :message="'Searching'" />
+    <slot v-else />
+    <div v-if="empty && !isFetching" class="empty">
       <fluent-icon icon="info" size="16px" class="icon" />
       <p class="empty-state__text">
         {{ $t('SEARCH.EMPTY_STATE', { item: titleCase, query }) }}
@@ -28,6 +29,14 @@ export default {
       type: String,
       default: '',
     },
+    showTitle: {
+      type: Boolean,
+      default: true,
+    },
+    isFetching: {
+      type: Boolean,
+      default: true,
+    },
   },
   computed: {
     titleCase() {
@@ -38,33 +47,23 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.search-list {
-  list-style: none;
-  margin: 0;
-  padding: var(--spacing-normal) 0;
+.result-section {
+  @apply my-2 mx-0;
 }
-.label-container {
-  position: sticky;
-  top: 0;
-  padding: var(--space-small) 0;
-  z-index: 50;
-  background: var(--white);
+.search-list {
+  @apply m-0 py-4 px-0 list-none;
+}
+.header {
+  @apply sticky top-0 p-2 z-50 bg-white dark:bg-slate-900 mb-0.5;
 }
 
 .empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-medium) var(--space-normal);
-  background: var(--s-25);
-  border-radius: var(--border-radius-medium);
+  @apply flex items-center justify-center py-6 px-4 m-2 bg-slate-25 dark:bg-slate-800 rounded-md;
   .icon {
-    color: var(--s-500);
+    @apply text-slate-500 dark:text-slate-300;
   }
   .empty-state__text {
-    text-align: center;
-    color: var(--s-500);
-    margin: 0 var(--space-small);
+    @apply text-slate-500 dark:text-slate-300 text-center my-0 mx-2;
   }
 }
 </style>

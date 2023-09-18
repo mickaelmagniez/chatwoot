@@ -13,6 +13,7 @@
         @open="openArticleSettings"
         @close="closeArticleSettings"
         @show="showArticleInPortal"
+        @update-meta="updateMeta"
       />
       <div v-if="isFetching" class="text-center p-normal fs-default h-full">
         <spinner size="" />
@@ -31,6 +32,7 @@
       @save-article="saveArticle"
       @delete-article="openDeletePopup"
       @archive-article="archiveArticle"
+      @update-meta="updateMeta"
     />
     <woot-delete-modal
       :show.sync="showDeleteConfirmationPopup"
@@ -51,7 +53,7 @@ import ArticleSettings from './ArticleSettings';
 import Spinner from 'shared/components/Spinner';
 import portalMixin from '../../mixins/portalMixin';
 import alertMixin from 'shared/mixins/alertMixin';
-import wootConstants from 'dashboard/constants';
+import wootConstants from 'dashboard/constants/globals';
 import { buildPortalArticleURL } from 'dashboard/helper/portalHelper';
 import { PORTALS_EVENTS } from '../../../../../helper/AnalyticsHelper/events';
 
@@ -87,13 +89,16 @@ export default {
     selectedPortalSlug() {
       return this.$route.params.portalSlug;
     },
+    selectedLocale() {
+      return this.$route.params.locale;
+    },
     portalLink() {
       const slug = this.$route.params.portalSlug;
       return buildPortalArticleURL(
         slug,
         this.article.category.slug,
         this.article.category.locale,
-        this.article.id
+        this.article.slug
       );
     },
   },
@@ -182,6 +187,13 @@ export default {
       } finally {
         this.showAlert(this.alertMessage);
       }
+    },
+    updateMeta() {
+      const selectedPortalParam = {
+        portalSlug: this.selectedPortalSlug,
+        locale: this.selectedLocale,
+      };
+      return this.$store.dispatch('portals/show', selectedPortalParam);
     },
     openArticleSettings() {
       this.showArticleSettings = true;

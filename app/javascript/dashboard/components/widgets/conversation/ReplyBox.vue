@@ -2,7 +2,9 @@
   <div class="reply-box" :class="replyBoxClass">
     <banner
       v-if="showSelfAssignBanner"
+      action-button-variant="clear"
       color-scheme="secondary"
+      class="banner--self-assign"
       :banner-message="$t('CONVERSATION.NOT_ASSIGNED_TO_YOU')"
       :has-action-button="true"
       :action-button-label="$t('CONVERSATION.ASSIGN_TO_ME')"
@@ -34,6 +36,7 @@
         v-if="showReplyHead"
         :cc-emails.sync="ccEmails"
         :bcc-emails.sync="bccEmails"
+        :to-emails.sync="toEmails"
       />
       <woot-audio-recorder
         v-if="showAudioRecorderEditor"
@@ -50,6 +53,9 @@
         class="input"
         :placeholder="messagePlaceHolder"
         :min-height="4"
+        :signature="signatureToApply"
+        :allow-signature="true"
+        :send-with-signature="sendWithSignature"
         @typing-off="onTypingOff"
         @typing-on="onTypingOn"
         @focus="onFocus"
@@ -66,6 +72,8 @@
         :min-height="4"
         :enable-variables="true"
         :variables="messageVariables"
+        :signature="signatureToApply"
+        :allow-signature="true"
         @typing-off="onTypingOff"
         @typing-on="onTypingOn"
         @focus="onFocus"
@@ -83,16 +91,10 @@
       />
     </div>
     <div
-      v-if="isSignatureEnabledForInbox"
-      v-tooltip="$t('CONVERSATION.FOOTER.MESSAGE_SIGN_TOOLTIP')"
+      v-if="isSignatureEnabledForInbox && !isSignatureAvailable"
       class="message-signature-wrap"
     >
-      <p
-        v-if="isSignatureAvailable"
-        v-dompurify-html="formatMessage(messageSignature)"
-        class="message-signature"
-      />
-      <p v-else class="message-signature">
+      <p class="message-signature">
         {{ $t('CONVERSATION.FOOTER.MESSAGE_SIGNATURE_NOT_CONFIGURED') }}
         <router-link :to="profilePath">
           {{ $t('CONVERSATION.FOOTER.CLICK_HERE') }}
@@ -120,8 +122,10 @@
       :toggle-audio-recorder-play-pause="toggleAudioRecorderPlayPause"
       :toggle-audio-recorder="toggleAudioRecorder"
       :toggle-emoji-picker="toggleEmojiPicker"
+      :message="message"
       @selectWhatsappTemplate="openWhatsappTemplateModal"
       @toggle-editor="toggleRichContentEditor"
+      @replace-text="replaceText"
     />
     <whatsapp-templates
       :inbox-id="inbox.id"
@@ -162,11 +166,11 @@ import {
   AUDIO_FORMATS,
 } from 'shared/constants/messages';
 import { BUS_EVENTS } from 'shared/constants/busEvents';
-import { replaceVariablesInMessage } from 'dashboard/helper/messageHelper';
 import {
   getMessageVariables,
   getUndefinedVariablesInMessage,
-} from 'dashboard/helper/messageHelper';
+  replaceVariablesInMessage,
+} from '@chatwoot/utils';
 import WhatsappTemplates from './WhatsappTemplates/Modal.vue';
 import { buildHotKeys } from 'shared/helpers/KeyboardHelpers';
 import { MESSAGE_MAX_LENGTH } from 'shared/helpers/MessageTypeHelper';
@@ -174,12 +178,17 @@ import inboxMixin from 'shared/mixins/inboxMixin';
 import uiSettingsMixin from 'dashboard/mixins/uiSettings';
 import { DirectUpload } from 'activestorage';
 import { frontendURL } from '../../../helper/URLHelper';
-import { LocalStorage, LOCAL_STORAGE_KEYS } from '../../../helper/localStorage';
 import { trimContent, debounce } from '@chatwoot/utils';
-import wootConstants from 'dashboard/constants';
+import wootConstants from 'dashboard/constants/globals';
 import { isEditorHotKeyEnabled } from 'dashboard/mixins/uiSettings';
 import { CONVERSATION_EVENTS } from '../../../helper/AnalyticsHelper/events';
 import rtlMixin from 'shared/mixins/rtlMixin';
+import {
+  appendSignature,
+  removeSignature,
+  replaceSignature,
+  extractTextFromMarkdown,
+} from 'dashboard/helper/editorHelper';
 
 const EmojiInput = () => import('shared/components/emoji/EmojiInput');
 
@@ -234,6 +243,7 @@ export default {
       hasSlashCommand: false,
       bccEmails: '',
       ccEmails: '',
+      toEmails: '',
       doAutoSaveDraft: () => {},
       showWhatsAppTemplatesModal: false,
       updateEditorSelectionWith: '',
@@ -335,6 +345,12 @@ export default {
         this.message.length === 0 ||
         this.message.length > this.maxLength
       );
+    },
+    sender() {
+      return {
+        name: this.currentUser.name,
+        thumbnail: this.currentUser.avatar_url,
+      };
     },
     conversationType() {
       const { additional_attributes: additionalAttributes } = this.currentChat;
@@ -452,13 +468,18 @@ export default {
       return !this.isOnPrivateNote && this.isAnEmailChannel;
     },
     enableMultipleFileUpload() {
-      return this.isAnEmailChannel || this.isAWebWidgetInbox || this.isAPIInbox;
+      return (
+        this.isAnEmailChannel ||
+        this.isAWebWidgetInbox ||
+        this.isAPIInbox ||
+        this.isAWhatsAppChannel
+      );
     },
     isSignatureEnabledForInbox() {
-      return !this.isPrivate && this.isAnEmailChannel && this.sendWithSignature;
+      return !this.isPrivate && this.sendWithSignature;
     },
     isSignatureAvailable() {
-      return !!this.messageSignature;
+      return !!this.signatureToApply;
     },
     sendWithSignature() {
       const { send_with_signature: isEnabled } = this.uiSettings;
@@ -487,16 +508,22 @@ export default {
       return `draft-${this.conversationIdByRoute}-${this.replyType}`;
     },
     audioRecordFormat() {
-      if (this.isAWebWidgetInbox) {
-        return AUDIO_FORMATS.WEBM;
+      if (this.isAWhatsAppChannel || this.isAPIInbox) {
+        return AUDIO_FORMATS.OGG;
       }
-      return AUDIO_FORMATS.OGG;
+      return AUDIO_FORMATS.WAV;
     },
     messageVariables() {
       const variables = getMessageVariables({
         conversation: this.currentChat,
       });
       return variables;
+    },
+    // ensure that the signature is plain text depending on `showRichContentEditor`
+    signatureToApply() {
+      return this.showRichContentEditor
+        ? this.messageSignature
+        : extractTextFromMarkdown(this.messageSignature);
     },
   },
   watch: {
@@ -513,7 +540,7 @@ export default {
         this.replyType = REPLY_EDITOR_MODES.NOTE;
       }
 
-      this.setCCEmailFromLastChat();
+      this.setCCAndToEmailsFromLastChat();
     },
     conversationIdByRoute(conversationId, oldConversationId) {
       if (conversationId !== oldConversationId) {
@@ -547,7 +574,7 @@ export default {
     // working even if input/textarea is focussed.
     document.addEventListener('paste', this.onPaste);
     document.addEventListener('keydown', this.handleKeyEvents);
-    this.setCCEmailFromLastChat();
+    this.setCCAndToEmailsFromLastChat();
     this.doAutoSaveDraft = debounce(
       () => {
         this.saveDraft(this.conversationIdByRoute, this.replyType);
@@ -565,31 +592,33 @@ export default {
       this.updateUISettings({
         display_rich_content_editor: !this.showRichContentEditor,
       });
-    },
-    getSavedDraftMessages() {
-      return LocalStorage.get(LOCAL_STORAGE_KEYS.DRAFT_MESSAGES) || {};
+
+      const plainTextSignature = extractTextFromMarkdown(this.messageSignature);
+
+      if (!this.showRichContentEditor && this.messageSignature) {
+        // remove the old signature -> extract text from markdown -> attach new signature
+        let message = removeSignature(this.message, this.messageSignature);
+        message = extractTextFromMarkdown(message);
+        message = appendSignature(message, plainTextSignature);
+
+        this.message = message;
+      } else {
+        this.message = replaceSignature(
+          this.message,
+          plainTextSignature,
+          this.messageSignature
+        );
+      }
     },
     saveDraft(conversationId, replyType) {
       if (this.message || this.message === '') {
-        const savedDraftMessages = this.getSavedDraftMessages();
         const key = `draft-${conversationId}-${replyType}`;
         const draftToSave = trimContent(this.message || '');
-        const {
-          [key]: currentDraft,
-          ...restOfDraftMessages
-        } = savedDraftMessages;
 
-        const updatedDraftMessages = draftToSave
-          ? {
-              ...restOfDraftMessages,
-              [key]: draftToSave,
-            }
-          : restOfDraftMessages;
-
-        LocalStorage.set(
-          LOCAL_STORAGE_KEYS.DRAFT_MESSAGES,
-          updatedDraftMessages
-        );
+        this.$store.dispatch('draftMessages/set', {
+          key,
+          message: draftToSave,
+        });
       }
     },
     setToDraft(conversationId, replyType) {
@@ -598,24 +627,27 @@ export default {
     },
     getFromDraft() {
       if (this.conversationIdByRoute) {
-        try {
-          const key = `draft-${this.conversationIdByRoute}-${this.replyType}`;
-          const savedDraftMessages = this.getSavedDraftMessages();
-          this.message = `${savedDraftMessages[key] || ''}`;
-        } catch (error) {
-          this.message = '';
-        }
+        const key = `draft-${this.conversationIdByRoute}-${this.replyType}`;
+        const messageFromStore =
+          this.$store.getters['draftMessages/get'](key) || '';
+
+        // ensure that the message has signature set based on the ui setting
+        this.message = this.toggleSignatureForDraft(messageFromStore);
       }
+    },
+    toggleSignatureForDraft(message) {
+      if (this.isPrivate) {
+        return message;
+      }
+
+      return this.sendWithSignature
+        ? appendSignature(message, this.signatureToApply)
+        : removeSignature(message, this.signatureToApply);
     },
     removeFromDraft() {
       if (this.conversationIdByRoute) {
         const key = `draft-${this.conversationIdByRoute}-${this.replyType}`;
-        const draftMessages = this.getSavedDraftMessages();
-        const { [key]: toBeRemoved, ...updatedDraftMessages } = draftMessages;
-        LocalStorage.set(
-          LOCAL_STORAGE_KEYS.DRAFT_MESSAGES,
-          updatedDraftMessages
-        );
+        this.$store.dispatch('draftMessages/delete', { key });
       }
     },
     handleKeyEvents(e) {
@@ -703,19 +735,14 @@ export default {
         return;
       }
       if (!this.showMentions) {
-        let newMessage = this.message;
-        if (this.isSignatureEnabledForInbox && this.messageSignature) {
-          newMessage += '\n\n' + this.messageSignature;
-        }
-
         const isOnWhatsApp =
           this.isATwilioWhatsAppChannel ||
           this.isAWhatsAppCloudChannel ||
           this.is360DialogWhatsAppChannel;
         if (isOnWhatsApp && !this.isPrivate) {
-          this.sendMessageAsMultipleMessages(newMessage);
+          this.sendMessageAsMultipleMessages(this.message);
         } else {
-          const messagePayload = this.getMessagePayload(newMessage);
+          const messagePayload = this.getMessagePayload(this.message);
           this.sendMessage(messagePayload);
         }
 
@@ -733,6 +760,15 @@ export default {
       messages.forEach(messagePayload => {
         this.sendMessage(messagePayload);
       });
+    },
+    sendMessageAnalyticsData(isPrivate) {
+      // Analytics data for message signature is enabled or not in channels
+      return isPrivate
+        ? this.$track(CONVERSATION_EVENTS.SENT_PRIVATE_NOTE)
+        : this.$track(CONVERSATION_EVENTS.SENT_MESSAGE, {
+            channelType: this.channelType,
+            signatureEnabled: this.sendWithSignature,
+          });
     },
     async onSendReply() {
       const undefinedVariables = getUndefinedVariablesInMessage({
@@ -765,7 +801,9 @@ export default {
           messagePayload
         );
         bus.$emit(BUS_EVENTS.SCROLL_TO_MESSAGE);
+        bus.$emit(BUS_EVENTS.MESSAGE_SENT);
         this.removeFromDraft();
+        this.sendMessageAnalyticsData(messagePayload.private);
       } catch (error) {
         const errorMessage =
           error?.response?.data?.error || this.$t('CONVERSATION.MESSAGE_ERROR');
@@ -791,6 +829,9 @@ export default {
     },
     setReplyMode(mode = REPLY_EDITOR_MODES.REPLY) {
       const { can_reply: canReply } = this.currentChat;
+      this.$store.dispatch('draftMessages/setReplyEditorMode', {
+        mode,
+      });
       if (canReply || this.isAWhatsAppChannel) this.replyType = mode;
       if (this.showRichContentEditor) {
         if (this.isRecordingAudio) {
@@ -823,12 +864,17 @@ export default {
     },
     clearMessage() {
       this.message = '';
+      if (this.sendWithSignature && !this.isPrivate) {
+        // if signature is enabled, append it to the message
+        this.message = appendSignature(this.message, this.signatureToApply);
+      }
       this.attachedFiles = [];
       this.isRecordingAudio = false;
     },
     clearEmailField() {
       this.ccEmails = '';
       this.bccEmails = '';
+      this.toEmails = '';
     },
     toggleEmojiPicker() {
       this.showEmojiPicker = !this.showEmojiPicker;
@@ -991,6 +1037,7 @@ export default {
             files: [attachedFile],
             private: false,
             message: caption,
+            sender: this.sender,
           };
           multipleMessagePayload.push(attachmentPayload);
           caption = '';
@@ -1000,6 +1047,7 @@ export default {
           conversationId: this.currentChat.id,
           message,
           private: false,
+          sender: this.sender,
         };
         multipleMessagePayload.push(messagePayload);
       }
@@ -1011,6 +1059,7 @@ export default {
         conversationId: this.currentChat.id,
         message,
         private: this.isPrivate,
+        sender: this.sender,
       };
 
       if (this.inReplyTo) {
@@ -1036,22 +1085,56 @@ export default {
         messagePayload.bccEmails = this.bccEmails;
       }
 
+      if (this.toEmails && !this.isOnPrivateNote) {
+        messagePayload.toEmails = this.toEmails;
+      }
+
       return messagePayload;
     },
     setCcEmails(value) {
       this.bccEmails = value.bccEmails;
       this.ccEmails = value.ccEmails;
     },
-    setCCEmailFromLastChat() {
-      if (this.lastEmail) {
-        const {
-          content_attributes: { email: emailAttributes = {} },
-        } = this.lastEmail;
-        const cc = emailAttributes.cc || [];
-        const bcc = emailAttributes.bcc || [];
-        this.ccEmails = cc.join(', ');
-        this.bccEmails = bcc.join(', ');
+    setCCAndToEmailsFromLastChat() {
+      if (!this.lastEmail) return;
+
+      const {
+        content_attributes: { email: emailAttributes = {} },
+      } = this.lastEmail;
+
+      // Retrieve the email of the current conversation's sender
+      const conversationContact = this.currentChat?.meta?.sender?.email || '';
+      let cc = emailAttributes.cc ? [...emailAttributes.cc] : [];
+      let to = [];
+
+      // there might be a situation where the current conversation will include a message from a third person,
+      // and the current conversation contact is in CC.
+      // This is an edge-case, reported here: CW-1511 [ONLY FOR INTERNAL REFERENCE]
+      // So we remove the current conversation contact's email from the CC list if present
+      if (cc.includes(conversationContact)) {
+        cc = cc.filter(email => email !== conversationContact);
       }
+
+      // If the last incoming message sender is different from the conversation contact, add them to the "to"
+      // and add the conversation contact to the CC
+      if (!emailAttributes.from.includes(conversationContact)) {
+        to.push(...emailAttributes.from);
+        cc.push(conversationContact);
+      }
+
+      // Remove the conversation contact's email from the BCC list if present
+      let bcc = (emailAttributes.bcc || []).filter(
+        email => email !== conversationContact
+      );
+
+      // Ensure only unique email addresses are in the CC list
+      bcc = [...new Set(bcc)];
+      cc = [...new Set(cc)];
+      to = [...new Set(to)];
+
+      this.ccEmails = cc.join(', ');
+      this.bccEmails = bcc.join(', ');
+      this.toEmails = to.join(', ');
     },
   },
 };
@@ -1059,97 +1142,71 @@ export default {
 
 <style lang="scss" scoped>
 .send-button {
-  margin-bottom: 0;
+  @apply mb-0;
+}
+
+.banner--self-assign {
+  @apply py-2;
 }
 
 .message-signature-wrap {
-  margin: 0 var(--space-normal);
-  padding: var(--space-small);
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  border: 1px dashed var(--s-100);
-  border-radius: var(--border-radius-small);
-  max-height: 8vh;
-  overflow: auto;
-
-  &:hover {
-    background: var(--s-25);
-  }
+  @apply my-0 mx-4 px-1 flex max-h-[8vh] items-baseline justify-between hover:bg-slate-25 dark:hover:bg-slate-800 border border-dashed border-slate-100 dark:border-slate-700 rounded-sm overflow-auto;
 }
 
 .message-signature {
-  width: fit-content;
-  margin: 0;
+  @apply w-fit m-0;
 }
 
 .attachment-preview-box {
-  padding: 0 var(--space-normal);
-  background: transparent;
+  @apply bg-transparent py-0 px-4;
 }
 
 .reply-box {
-  border-top: 1px solid var(--color-border);
-  background: white;
+  @apply border-t border-slate-50 dark:border-slate-700 bg-white dark:bg-slate-900;
 
   &.is-private {
-    background: var(--y-50);
+    @apply bg-yellow-50 dark:bg-yellow-200;
   }
 }
 .send-button {
-  margin-bottom: 0;
+  @apply mb-0;
 }
 
 .reply-box__top {
-  position: relative;
-  padding: 0 var(--space-normal);
-  border-top: 1px solid var(--color-border);
-  margin-top: -1px;
+  @apply relative py-0 px-4 -mt-px border-t border-solid border-slate-50 dark:border-slate-700;
 }
 
 .emoji-dialog {
-  top: unset;
-  bottom: -40px;
-  left: -320px;
-  right: unset;
+  @apply top-[unset] -bottom-10 -left-80 right-[unset];
 
   &::before {
-    right: var(--space-minus-normal);
-    bottom: var(--space-small);
     transform: rotate(270deg);
     filter: drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.08));
+    @apply -right-4 bottom-2 rtl:right-0 rtl:-left-4;
   }
 }
 
 .emoji-dialog--rtl {
-  left: unset;
-  right: -320px;
+  @apply left-[unset] -right-80;
   &::before {
-    left: var(--space-minus-normal);
     transform: rotate(90deg);
-    right: 0;
-    bottom: var(--space-small);
     filter: drop-shadow(0px 4px 4px rgba(0, 0, 0, 0.08));
   }
 }
 
 .emoji-dialog--expanded {
-  left: unset;
-  bottom: var(--space-jumbo);
-  position: absolute;
-  z-index: var(--z-index-normal);
+  @apply left-[unset] bottom-0 absolute z-[100];
 
   &::before {
     transform: rotate(0deg);
-    left: var(--space-smaller);
-    bottom: var(--space-minus-small);
+    @apply left-1 -bottom-2;
   }
 }
 .message-signature {
-  margin-bottom: 0;
+  @apply mb-0;
 
   ::v-deep p:last-child {
-    margin-bottom: 0;
+    @apply mb-0;
   }
 }
 

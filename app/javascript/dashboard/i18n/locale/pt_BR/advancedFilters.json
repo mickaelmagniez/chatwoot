@@ -1,13 +1,18 @@
 {
   "FILTER": {
-    "TITLE": "Filtrar Conversas",
+    "TITLE": "Filtrar conversas",
     "SUBTITLE": "Adicione filtros abaixo e clique em 'Enviar' para filtrar conversas.",
+    "EDIT_CUSTOM_FILTER": "Editar Pasta",
+    "CUSTOM_VIEWS_SUBTITLE": "Adicione ou remova filtros e atualize sua pasta.",
     "ADD_NEW_FILTER": "Adicionar filtro",
     "FILTER_DELETE_ERROR": "Você deve ter pelo menos um filtro para salvar",
     "SUBMIT_BUTTON_LABEL": "Aplicar filtros",
+    "UPDATE_BUTTON_LABEL": "Pasta de atualização",
     "CANCEL_BUTTON_LABEL": "Cancelar",
     "CLEAR_BUTTON_LABEL": "Limpar filtros",
     "EMPTY_VALUE_ERROR": "Valor obrigatório",
+    "FOLDER_LABEL": "Nome da pasta",
+    "FOLDER_QUERY_LABEL": "Consulta de Pasta",
     "TOOLTIP_LABEL": "Filtrar conversas",
     "QUERY_DROPDOWN_LABELS": {
       "AND": "E",
@@ -22,7 +27,8 @@
       "is_not_present": "Não está presente",
       "is_greater_than": "É maior que",
       "is_less_than": "É menor que",
-      "days_before": "É X dias antes"
+      "days_before": "É X dias antes",
+      "starts_with": "Começa com"
     },
     "ATTRIBUTE_LABELS": {
       "TRUE": "Verdadeiro",
@@ -37,6 +43,7 @@
       "CAMPAIGN_NAME": "Nome da Campanha",
       "LABELS": "Marcadores",
       "BROWSER_LANGUAGE": "Idioma do navegador",
+      "PRIORITY": "Prioridade",
       "COUNTRY_NAME": "Nome do País",
       "REFERER_LINK": "Link de origem",
       "CUSTOM_ATTRIBUTE_LIST": "Lista",
@@ -55,7 +62,7 @@
     "CUSTOM_VIEWS": {
       "ADD": {
         "TITLE": "Você quer salvar este filtro?",
-        "LABEL": "Nomear este filtro",
+        "LABEL": "Nomeie este filtro",
         "PLACEHOLDER": "Insira um nome para este filtro",
         "ERROR_MESSAGE": "O nome é obrigatório",
         "SAVE_BUTTON": "Salvar filtro",
@@ -69,12 +76,15 @@
           "ERROR_MESSAGE": "Erro ao criar segmento"
         }
       },
+      "EDIT": {
+        "EDIT_BUTTON": "Editar Pasta"
+      },
       "DELETE": {
         "DELETE_BUTTON": "Excluir filtro",
         "MODAL": {
           "CONFIRM": {
             "TITLE": "Confirmar exclusão",
-            "MESSAGE": "Tem certeza que deseja excluir o filtro ? ",
+            "MESSAGE": "Tem certeza que deseja excluir o filtro?",
             "YES": "Sim, excluir",
             "NO": "Não, mantenha"
           }

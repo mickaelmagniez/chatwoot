@@ -1,4 +1,6 @@
 class ActionService
+  include EmailHelper
+
   def initialize(conversation)
     @conversation = conversation.reload
   end
@@ -19,6 +21,10 @@ class ActionService
     @conversation.update!(status: status[0])
   end
 
+  def change_priority(priority)
+    @conversation.update!(priority: (priority[0] == 'nil' ? nil : priority[0]))
+  end
+
   def add_label(labels)
     return if labels.empty?
 
@@ -26,6 +32,8 @@ class ActionService
   end
 
   def assign_agent(agent_ids = [])
+    return @conversation.update!(assignee_id: nil) if agent_ids[0] == 'nil'
+
     return unless agent_belongs_to_inbox?(agent_ids)
 
     @agent = @account.users.find_by(id: agent_ids)
@@ -52,7 +60,10 @@ class ActionService
   end
 
   def send_email_transcript(emails)
+    emails = emails[0].gsub(/\s+/, '').split(',')
+
     emails.each do |email|
+      email = parse_email_variables(@conversation, email)
       ConversationReplyMailer.with(account: @conversation.account).conversation_transcript(@conversation, email)&.deliver_later
     end
   end

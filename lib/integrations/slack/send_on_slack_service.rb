@@ -1,4 +1,5 @@
 class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
+  include RegexHelper
   pattr_initialize [:message!, :hook!]
 
   def perform
@@ -8,7 +9,7 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
     # we don't want message loop in slack
     return if message.external_source_id_slack.present?
     # we don't want to start slack thread from agent conversation as of now
-    return if message.outgoing? && conversation.identifier.blank?
+    return if invalid_message?
 
     perform_reply
   end
@@ -22,6 +23,10 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
     true
   end
 
+  def invalid_message?
+    (message.outgoing? || message.template?) && conversation.identifier.blank?
+  end
+
   def perform_reply
     send_message
 
@@ -33,15 +38,29 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
 
   def message_content
     private_indicator = message.private? ? 'private: ' : ''
+    sanitized_content = ActionView::Base.full_sanitizer.sanitize(message_text)
+
     if conversation.identifier.present?
-      "#{private_indicator}#{message.content}"
+      "#{private_indicator}#{sanitized_content}"
     else
-      "#{formatted_inbox_name}#{email_subject_line}\n#{message.content}"
+      "#{formatted_inbox_name}#{formatted_conversation_link}#{email_subject_line}\n#{sanitized_content}"
+    end
+  end
+
+  def message_text
+    if message.content.present?
+      message.content.gsub(MENTION_REGEX, '\1')
+    else
+      message.content
     end
   end
 
   def formatted_inbox_name
     "\n*Inbox:* #{message.inbox.name} (#{message.inbox.inbox_type})\n"
+  end
+
+  def formatted_conversation_link
+    "#{link_to_conversation} to view the conversation.\n"
   end
 
   def email_subject_line
@@ -61,19 +80,20 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   def send_message
     post_message if message_content.present?
     upload_file if message.attachments.any?
-  rescue Slack::Web::Api::Errors::AccountInactive => e
+  rescue Slack::Web::Api::Errors::AccountInactive, Slack::Web::Api::Errors::MissingScope, Slack::Web::Api::Errors::InvalidAuth => e
     Rails.logger.error e
-    hook.authorization_error!
-    hook.disable if hook.enabled?
+    hook.prompt_reauthorization!
+    hook.disable
   end
 
   def post_message
     @slack_message = slack_client.chat_postMessage(
       channel: hook.reference_id,
-      text: ActionView::Base.full_sanitizer.sanitize(message_content),
+      text: message_content,
       username: sender_name(message.sender),
       thread_ts: conversation.identifier,
-      icon_url: avatar_url(message.sender)
+      icon_url: avatar_url(message.sender),
+      unfurl_links: conversation.identifier.present?
     )
   end
 
@@ -108,7 +128,7 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
   end
 
   def update_reference_id
-    return if conversation.identifier
+    return unless should_update_reference_id?
 
     conversation.update!(identifier: @slack_message['ts'])
   end
@@ -121,5 +141,17 @@ class Integrations::Slack::SendOnSlackService < Base::SendOnChannelService
 
   def slack_client
     @slack_client ||= Slack::Web::Client.new(token: hook.access_token)
+  end
+
+  def link_to_conversation
+    "<#{ENV.fetch('FRONTEND_URL', nil)}/app/accounts/#{conversation.account_id}/conversations/#{conversation.display_id}|Click here>"
+  end
+
+  # Determines whether the conversation identifier should be updated with the ts value.
+  # The identifier should be updated in the following cases:
+  # - If the conversation identifier is blank, it means a new conversation is being created.
+  # - If the thread_ts is blank, it means that the conversation was previously connected in a different channel.
+  def should_update_reference_id?
+    conversation.identifier.blank? || @slack_message['message']['thread_ts'].blank?
   end
 end

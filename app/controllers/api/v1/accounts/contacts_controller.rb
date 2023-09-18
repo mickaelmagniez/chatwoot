@@ -4,6 +4,7 @@ class Api::V1::Accounts::ContactsController < Api::V1::Accounts::BaseController
   sort_on :name, internal_name: :order_on_name, type: :scope, scope_params: [:direction]
   sort_on :phone_number, type: :string
   sort_on :last_activity_at, internal_name: :order_on_last_activity_at, type: :scope, scope_params: [:direction]
+  sort_on :created_at, internal_name: :order_on_created_at, type: :scope, scope_params: [:direction]
   sort_on :company, internal_name: :order_on_company_name, type: :scope, scope_params: [:direction]
   sort_on :city, internal_name: :order_on_city, type: :scope, scope_params: [:direction]
   sort_on :country, internal_name: :order_on_country_name, type: :scope, scope_params: [:direction]
@@ -17,7 +18,7 @@ class Api::V1::Accounts::ContactsController < Api::V1::Accounts::BaseController
 
   def index
     @contacts_count = resolved_contacts.count
-    @contacts = fetch_contacts_with_conversation_count(resolved_contacts)
+    @contacts = fetch_contacts(resolved_contacts)
   end
 
   def search
@@ -28,7 +29,7 @@ class Api::V1::Accounts::ContactsController < Api::V1::Accounts::BaseController
       search: "%#{params[:q].strip}%"
     )
     @contacts_count = contacts.count
-    @contacts = fetch_contacts_with_conversation_count(contacts)
+    @contacts = fetch_contacts(contacts)
   end
 
   def import
@@ -40,6 +41,12 @@ class Api::V1::Accounts::ContactsController < Api::V1::Accounts::BaseController
     end
 
     head :ok
+  end
+
+  def export
+    column_names = params['column_names']
+    Account::ContactsExportJob.perform_later(Current.account.id, column_names)
+    head :ok, message: I18n.t('errors.contacts.export.success')
   end
 
   # returns online contacts
@@ -56,7 +63,7 @@ class Api::V1::Accounts::ContactsController < Api::V1::Accounts::BaseController
     result = ::Contacts::FilterService.new(params.permit!, current_user).perform
     contacts = result[:contacts]
     @contacts_count = result[:count]
-    @contacts = fetch_contacts_with_conversation_count(contacts)
+    @contacts = fetch_contacts(contacts)
   end
 
   def contactable_inboxes
@@ -118,16 +125,14 @@ class Api::V1::Accounts::ContactsController < Api::V1::Accounts::BaseController
     @current_page = params[:page] || 1
   end
 
-  def fetch_contacts_with_conversation_count(contacts)
-    contacts_with_conversation_count = filtrate(contacts).left_outer_joins(:conversations)
-                                                         .select('contacts.*, COUNT(conversations.id) as conversations_count')
-                                                         .group('contacts.id')
-                                                         .includes([{ avatar_attachment: [:blob] }])
-                                                         .page(@current_page).per(RESULTS_PER_PAGE)
+  def fetch_contacts(contacts)
+    contacts_with_avatar = filtrate(contacts)
+                           .includes([{ avatar_attachment: [:blob] }])
+                           .page(@current_page).per(RESULTS_PER_PAGE)
 
-    return contacts_with_conversation_count.includes([{ contact_inboxes: [:inbox] }]) if @include_contact_inboxes
+    return contacts_with_avatar.includes([{ contact_inboxes: [:inbox] }]) if @include_contact_inboxes
 
-    contacts_with_conversation_count
+    contacts_with_avatar
   end
 
   def build_contact_inbox

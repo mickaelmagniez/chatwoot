@@ -39,7 +39,10 @@
         "NOTE": "Opret en personlig besked signatur, der vil blive føjet til alle de meddelelser, du sender fra din e-mail indbakke. Brug den rige content editor til at oprette en meget personlig signatur.",
         "BTN_TEXT": "Gem beskedsignatur",
         "API_ERROR": "Kunne ikke gemme signatur! Prøv igen",
-        "API_SUCCESS": "Signatur gemt"
+        "API_SUCCESS": "Signatur gemt",
+        "IMAGE_UPLOAD_ERROR": "Couldn't upload image! Try again",
+        "IMAGE_UPLOAD_SUCCESS": "Image added successfully. Please click on save to save the signature",
+        "IMAGE_UPLOAD_SIZE_ERROR": "Image size should be less than {size}MB"
       },
       "MESSAGE_SIGNATURE": {
         "LABEL": "Besked Signatur",
@@ -149,6 +152,7 @@
     "SELECTOR_SUBTITLE": "Vælg en konto fra følgende liste",
     "PROFILE_SETTINGS": "Profilindstillinger",
     "KEYBOARD_SHORTCUTS": "Tastaturgenveje",
+    "APPEARANCE": "Change Appearance",
     "SUPER_ADMIN_CONSOLE": "Super Admin Console",
     "LOGOUT": "Log Ud"
   },
@@ -164,6 +168,7 @@
   "COMPONENTS": {
     "CODE": {
       "BUTTON_TEXT": "Kopiér",
+      "CODEPEN": "Open in CodePen",
       "COPY_SUCCESSFUL": "Kode kopieret til udklipsholder med succes"
     },
     "SHOW_MORE_BLOCK": {
@@ -202,6 +207,7 @@
     "HOME": "Hjem",
     "AGENTS": "Agenter",
     "AGENT_BOTS": "Bots",
+    "AUDIT_LOGS": "Audit Logs",
     "INBOXES": "Indbakker",
     "NOTIFICATIONS": "Notifikationer",
     "CANNED_RESPONSES": "Standardsvar Svar",
